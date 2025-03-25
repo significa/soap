@@ -33,14 +33,21 @@ defmodule Soap.Response.Parser do
 
   @spec parse_record(tuple()) :: map() | String.t()
   defp parse_record({:xmlElement, tag_name, _, _, _, _, _, attributes, elements, _, _, _}) do
+    attributes_map = parse_attributes(attributes)
     element_content = parse_elements(elements)
-    attribute_map = parse_attributes(attributes)
 
-    case {attribute_map, element_content} do
-      {attrs, content} when map_size(attrs) == 0 -> %{tag_name => content}
-      {attrs, content} when map_size(content) == 0 -> %{tag_name => attrs}
-      {attrs, content} when is_map(content) -> %{tag_name => Map.merge(attrs, content)}
-      {attrs, content} -> %{tag_name => %{"_attributes" => attrs, "_value" => content}}
+    case {attributes_map, element_content} do
+      {attrs, content} when map_size(attrs) == 0 ->
+        %{tag_name => content}
+
+      {attrs, content} when map_size(content) == 0 ->
+        %{tag_name => attrs}
+
+      {attrs, content} when is_map(content) ->
+        %{tag_name => Map.merge(attrs, content)}
+
+      {attrs, content} ->
+        %{tag_name => %{"_attributes" => attrs, "_value" => content}}
     end
   end
 
@@ -50,7 +57,7 @@ defmodule Soap.Response.Parser do
   defp transform_record_value(value) when is_list(value), do: value |> to_string() |> String.trim()
   defp transform_record_value(value) when is_binary(value), do: value |> String.trim()
 
-  @spec parse_elements(list() | tuple()) :: map()
+  @spec parse_elements(list() | tuple()) :: map() | String.t()
   defp parse_elements([]), do: %{}
   defp parse_elements(elements) when is_tuple(elements), do: parse_record(elements)
 
