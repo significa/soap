@@ -32,8 +32,16 @@ defmodule Soap.Response.Parser do
   end
 
   @spec parse_record(tuple()) :: map() | String.t()
-  defp parse_record({:xmlElement, tag_name, _, _, _, _, _, _, elements, _, _, _}) do
-    %{tag_name => parse_elements(elements)}
+  defp parse_record({:xmlElement, tag_name, _, _, _, _, _, attributes, elements, _, _, _}) do
+    element_content = parse_elements(elements)
+    attribute_map = parse_attributes(attributes)
+
+    case {attribute_map, element_content} do
+      {attrs, content} when map_size(attrs) == 0 -> %{tag_name => content}
+      {attrs, content} when map_size(content) == 0 -> %{tag_name => attrs}
+      {attrs, content} when is_map(content) -> %{tag_name => Map.merge(attrs, content)}
+      {attrs, content} -> %{tag_name => %{"_attributes" => attrs, "_value" => content}}
+    end
   end
 
   defp parse_record({:xmlText, _, _, _, value, _}), do: transform_record_value(value)
@@ -106,4 +114,13 @@ defmodule Soap.Response.Parser do
   defp apply_namespace_to_tag(env_namespace, tag), do: env_namespace <> ":" <> tag
 
   defp soap_version, do: Application.fetch_env!(:soap, :globals)[:version]
+
+  @spec parse_attributes(list()) :: map()
+  defp parse_attributes(attributes) do
+    attributes
+    |> Enum.map(fn {:xmlAttribute, name, _, _, _, _, _, _, value, _} ->
+      {name, transform_record_value(value)}
+    end)
+    |> Enum.into(%{})
+  end
 end
